@@ -66,10 +66,6 @@ This tool uses the following libraries:
 
 *   The save editing features and encryption methods were heavily based on the great work done by N0edL in the original [R.E.P.O-Save-Editor](https://github.com/N0edL/R.E.P.O-Save-Editor).
 
-## License
-
-This project is released under the MIT License. (See LICENSE file for details - consider adding one if you haven't).
-
 ## Contributing
 
 Contributions, issues, and feature requests are welcome. Feel free to check [issues page](https://github.com/armand0e/Repo-Save-Manager/issues) if you want to contribute
