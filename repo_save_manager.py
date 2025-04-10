@@ -463,14 +463,29 @@ class RepoSaveManager(QMainWindow):
         self.update_button_states() # Set initial button states
 
     def setup_paths(self):
-        # Define paths
-        self.repo_saves_path = r"C:\Users\aranr\AppData\LocalLow\semiwork\Repo\saves"
-        self.backup_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backups")
+        # Get Local AppData path
+        local_appdata = os.getenv('LOCALAPPDATA')
+        if not local_appdata:
+            # Fallback if LOCALAPPDATA is not set (unlikely on Windows)
+            local_appdata = os.path.join(Path.home(), 'AppData', 'Local')
+            print("[WARN Paths] LOCALAPPDATA not found, using fallback: ", local_appdata)
+
+        # Define the application's data directory within LocalAppData
+        app_data_dir = os.path.join(local_appdata, "RepoSaveManager")
+        print(f"[DEBUG Paths] Application data directory: {app_data_dir}")
+
+        # Define paths relative to the app_data_dir
+        self.repo_saves_path = r"C:\Users\aranr\AppData\LocalLow\semiwork\Repo\saves" # Game files remain absolute
+        self.backup_path = os.path.join(app_data_dir, "backups")
         self.descriptions_file = os.path.join(self.backup_path, "descriptions.json")
-        self.editor_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "editor_temp")
+        self.editor_path = os.path.join(app_data_dir, "editor_temp")
         
         # Create directories if they don't exist
+        print(f"[DEBUG Paths] Ensuring AppData dir exists: {app_data_dir}")
+        os.makedirs(app_data_dir, exist_ok=True)
+        print(f"[DEBUG Paths] Ensuring backup path exists: {self.backup_path}")
         os.makedirs(self.backup_path, exist_ok=True)
+        print(f"[DEBUG Paths] Ensuring editor path exists: {self.editor_path}")
         os.makedirs(self.editor_path, exist_ok=True)
 
     def setup_styling(self):
@@ -683,6 +698,7 @@ class RepoSaveManager(QMainWindow):
                 # --- Column 0: Save Name --- 
                 name_item = QTableWidgetItem(item_name)
                 name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                name_item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter) # Center vertically
                 self.save_table.setItem(row, 0, name_item)
 
                 # --- Extract data and Create Widgets for other columns --- 
@@ -727,6 +743,7 @@ class RepoSaveManager(QMainWindow):
                 pfp_layout = QHBoxLayout(pfp_widget)
                 pfp_layout.setContentsMargins(5, 0, 5, 0) 
                 pfp_layout.setSpacing(2) 
+                pfp_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter) # Align content vertically center
                 player_names_for_tooltip = [] # List to collect names for container tooltip
                 if player_ids:
                     for player_id in player_ids:
@@ -751,11 +768,13 @@ class RepoSaveManager(QMainWindow):
                 # --- Column 2: Day (previously Haul) --- 
                 day_item = QTableWidgetItem(day_str)
                 day_item.setFlags(day_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                day_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter) # Center vertically AND horizontally
                 self.save_table.setItem(row, 2, day_item) # Set item at index 2
                     
                 # --- Column 3: Notes (Editable) --- 
                 desc = self.descriptions.get(item_name, "") # Gets saved note or empty string
                 desc_item = QTableWidgetItem(desc)
+                desc_item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter) # Center vertically
                 self.save_table.setItem(row, 3, desc_item) # Set item at index 3
                 
         except Exception as e:
