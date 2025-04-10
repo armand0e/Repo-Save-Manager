@@ -1,73 +1,74 @@
 # Repo Save Manager
 
-A PyQt6-based GUI application for creating/managing backups and editing save files for R.E.P.O.
+A simple tool to backup, restore, and edit your save files for the game R.E.P.O.
 
-## Features
+## What it Does
 
-*   **Backup Management:**
-    *   Backup current R.E.P.O save files from the game directory.
-    *   View existing backups in a clear table format.
-    *   Display basic save info (Players, Day) directly in the table.
-    *   Restore selected backups back into the game's save directory.
-    *   Duplicate existing backups.
-    *   Delete backups (with confirmation).
-    *   Add custom notes to backups.
-    *   Quickly open the backup folder in File Explorer.
-*   **Save Editing:**
-    *   Integrated save editor based on the core logic from [N0edL/R.E.P.O-Save-Editor](https://github.com/N0edL/R.E.P.O-Save-Editor).
-    *   Decrypts and loads `.es3` files.
-    *   Tabbed interface for editing:
-        *   **World:** Modify Level, Currency, Lives, Charging Station Charge, Total Haul, Team Name.
-        *   **Player:** View player Steam profile picture and name, modify Health and Upgrade levels (Health, Stamina, Jump, Launch, etc.).
-        *   **Advanced:** View and edit the raw JSON data with syntax highlighting.
-    *   Re-encrypts and saves changes back to the backup file.
-*   **Modern UI:** Dark mode interface built with PyQt6.
+*   **Keeps Your Saves Safe:** Easily create backups of your R.E.P.O game saves.
+*   **Restores Backups:** Quickly load a backed-up save back into the game.
+*   **Manages Backups:**
+    *   See all your backups in a list.
+    *   View basic info like Players and Day number directly in the list.
+    *   Duplicate backups if you want copies.
+    *   Delete old backups you don't need anymore.
+    *   Add your own notes to remember what a backup was for.
+    *   Open the folder where backups are stored.
+*   **Edits Saves (Optional):**
+    *   Includes an editor to change things like your Level, Currency, Lives, Player Health, and Upgrades.
+    *   Also has an advanced view for raw JSON editing (use with caution!).
 
-## Installation & Usage
+## How to Use (Easy Version - Recommended)
 
-### Using the Executable (Recommended)
+1.  **Download:** Get the `RepoSaveManager.exe` file from the [Releases](https://github.com/armand0e/Repo-Save-Manager/releases) page of this project.
+2.  **Run:** Double-click `RepoSaveManager.exe` to start the application. You can place the `.exe` file anywhere (like your Desktop).
+3.  **Backup:** Click "Backup Current Save" to make a copy of your latest game save.
+4.  **View:** Your backups will appear in the list.
+5.  **Restore:** Select a backup from the list and click "Restore Selected Save" to load it into the game.
+6.  **Edit (Optional):** Select a backup and click "Edit Save" to open the editor window. Make your changes and click "Save Changes".
 
-1.  Download the `RepoSaveManager.exe` file from the `dist` folder or the [Releases](https://github.com/armand0e/Repo-Save-Manager/releases) page. <!-- TODO: Update repo link -->
-2.  Place the `.exe` file anywhere on your computer.
-3.  Run `RepoSaveManager.exe`.
-4.  The application will automatically locate the default R.E.P.O save directory (`%LocalAppData%Low\semiwork\Repo\saves`) and create a `backups` folder next to the executable.
-5.  Use the buttons to manage backups and edit saves.
+**Where are backups stored?**
 
-### Running from Source
+The application automatically stores backups and notes in a dedicated folder on your computer:
+`C:\Users\YOUR_USERNAME\AppData\Local\RepoSaveManager\backups`
+(You can open this folder easily using the "Open Save Folder" button in the app).
 
-1.  Ensure you have Python 3 installed (preferably 3.8+).
-2.  Clone this repository:
-    ```bash
-    git clone https://github.com/armand0e/Repo-Save-Manager.git # TODO: Update repo link
-    cd YOUR_REPO_NAME
-    ```
-3.  Set up a virtual environment (optional but recommended):
+## For Advanced Users (Running from Source Code)
+
+If you prefer to run the tool directly using Python:
+
+1.  **Install Python:** Make sure you have Python 3.8 or newer installed.
+2.  **Download Code:** Clone or download the source code from this repository.
+3.  **Open Terminal:** Navigate to the downloaded folder in your command prompt or terminal.
+4.  **(Optional) Create Virtual Environment:**
     ```bash
     python -m venv venv
-    # On Windows
-    venv\Scripts\activate
-    # On macOS/Linux
-    # source venv/bin/activate
+    # On Windows: venv\Scripts\activate
+    # On macOS/Linux: source venv/bin/activate
     ```
-4.  Install the required dependencies:
+5.  **Install Requirements:**
     ```bash
     pip install -r requirements.txt
     ```
-5.  Run the application:
+6.  **Run:**
     ```bash
     python repo_save_manager.py
     ```
 
 ## Dependencies
 
-*   [PyQt6](https://pypi.org/project/PyQt6/)
-*   [requests](https://pypi.org/project/requests/)
-*   [pycryptodome](https://pypi.org/project/pycryptodome/)
+This tool uses the following libraries:
+
+*   PyQt6 (for the user interface)
+*   requests (for fetching Steam profile pictures)
+*   pycryptodome (for save file encryption/decryption)
 
 ## Credits
 
-*   The core save file encryption/decryption logic and the initial save editor structure are adapted from the [R.E.P.O-Save-Editor](https://github.com/N0edL/R.E.P.O-Save-Editor) project by N0edL.
-*   Steam profile picture fetching uses the Steam Community XML profile data.
+*   The save editing features and encryption methods were heavily based on the great work done by N0edL in the original [R.E.P.O-Save-Editor](https://github.com/N0edL/R.E.P.O-Save-Editor).
+
+## License
+
+This project is released under the MIT License. (See LICENSE file for details - consider adding one if you haven't).
 
 ## Contributing
 
