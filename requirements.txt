@@ -1,5 +1,5 @@
 PyQt6==6.8.1
 PyQt6-Qt6==6.8.2
 PyQt6-sip==13.10.0
-requests
-pycryptodome
+requests==2.32.3
+pycryptodome==3.22.0
