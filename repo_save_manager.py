@@ -506,6 +506,7 @@ class RepoSaveManager(QMainWindow):
             QWidget {
                 color: #ffffff;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                background-color: #1c1c1e;
             }
             QPushButton {
                 background-color: #2c2c2e;
@@ -542,16 +543,20 @@ class RepoSaveManager(QMainWindow):
             }
             QLabel {
                 color: #ffffff;
+                background-color: transparent;
             }
             QTableWidget {
                 background-color: #2c2c2e;
                 border: 1px solid #3a3a3c;
                 border-radius: 12px;
                 gridline-color: #3a3a3c;
+                color: #ffffff;
             }
             QTableWidget::item {
                 padding: 12px;
                 border-bottom: 1px solid #3a3a3c;
+                color: #ffffff;
+                background-color: #2c2c2e;
             }
             QTableWidget::item:selected {
                 background-color: #0A84FF;
@@ -586,7 +591,86 @@ class RepoSaveManager(QMainWindow):
             QFrame#separator {
                 background-color: #3a3a3c;
             }
-        """) # Keep existing styles
+            QLineEdit {
+                background-color: #2c2c2e;
+                color: #ffffff;
+                border: 1px solid #3a3a3c;
+                border-radius: 8px;
+                padding: 8px;
+                selection-background-color: #0A84FF;
+                selection-color: #ffffff;
+            }
+            QComboBox {
+                background-color: #2c2c2e;
+                color: #ffffff;
+                border: 1px solid #3a3a3c;
+                border-radius: 8px;
+                padding: 8px;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #2c2c2e;
+                color: #ffffff;
+                selection-background-color: #0A84FF;
+                selection-color: #ffffff;
+                border: 1px solid #3a3a3c;
+                border-radius: 8px;
+            }
+            QMessageBox {
+                background-color: #1c1c1e;
+            }
+            QMessageBox QLabel {
+                color: #ffffff;
+            }
+            QMessageBox QPushButton {
+                min-width: 80px;
+            }
+            QInputDialog {
+                background-color: #1c1c1e;
+            }
+            QInputDialog QLabel {
+                color: #ffffff;
+            }
+            QInputDialog QLineEdit {
+                background-color: #2c2c2e;
+                color: #ffffff;
+            }
+            QDialog {
+                background-color: #1c1c1e;
+            }
+            QTextEdit {
+                background-color: #2c2c2e;
+                color: #ffffff;
+                border: 1px solid #3a3a3c;
+                border-radius: 8px;
+                padding: 8px;
+                selection-background-color: #0A84FF;
+                selection-color: #ffffff;
+            }
+            QTabWidget::pane {
+                border: 1px solid #3a3a3c;
+                background-color: #1c1c1e;
+            }
+            QTabBar::tab {
+                background-color: #2c2c2e;
+                color: #ffffff;
+                padding: 8px 16px;
+                border: 1px solid #3a3a3c;
+                border-bottom: none;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background-color: #1c1c1e;
+                border-bottom: 1px solid #1c1c1e;
+            }
+            QTabBar::tab:hover {
+                background-color: #3a3a3c;
+            }
+        """)
 
     def setup_ui_elements(self):
         # --- Top section - Quick actions --- 
@@ -856,36 +940,49 @@ class RepoSaveManager(QMainWindow):
                 QLabel {
                     color: #ffffff;
                     font-size: 14px;
-                    margin-bottom: 10px;
+                    margin-bottom: 12px;
+                    padding: 0;
                 }
                 QComboBox {
                     background-color: #2c2c2e;
                     color: #ffffff;
                     border: 1px solid #3a3a3c;
-                    border-radius: 6px;
-                    padding: 8px;
+                    border-radius: 8px;
+                    padding: 10px;
                     min-width: 300px;
+                    margin-bottom: 16px;
                 }
                 QComboBox::drop-down {
                     border: none;
+                    width: 20px;
                 }
                 QComboBox::down-arrow {
-                    image: none;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 5px solid #ffffff;
-                    margin-right: 10px;
+                    width: 12px;
+                    height: 12px;
+                }
+                QComboBox QAbstractItemView {
+                    background-color: #2c2c2e;
+                    color: #ffffff;
+                    selection-background-color: #0A84FF;
+                    selection-color: #ffffff;
+                    border: 1px solid #3a3a3c;
+                    border-radius: 8px;
+                    padding: 4px;
                 }
                 QPushButton {
                     background-color: #0A84FF;
                     color: #ffffff;
                     border: none;
-                    padding: 8px 16px;
-                    border-radius: 6px;
+                    padding: 10px 20px;
+                    border-radius: 8px;
                     min-width: 100px;
+                    font-weight: 500;
                 }
                 QPushButton:hover {
                     background-color: #007AFF;
+                }
+                QPushButton:pressed {
+                    background-color: #0066CC;
                 }
                 QPushButton#cancel {
                     background-color: #2c2c2e;
@@ -893,9 +990,14 @@ class RepoSaveManager(QMainWindow):
                 QPushButton#cancel:hover {
                     background-color: #3a3a3c;
                 }
+                QPushButton#cancel:pressed {
+                    background-color: #48484a;
+                }
             """)
             
             layout = QVBoxLayout(dialog)
+            layout.setContentsMargins(24, 24, 24, 24)
+            layout.setSpacing(16)
             
             # Add label
             label = QLabel("Select a save to backup:")
@@ -909,6 +1011,7 @@ class RepoSaveManager(QMainWindow):
             
             # Add buttons
             button_layout = QHBoxLayout()
+            button_layout.setSpacing(12)
             ok_button = QPushButton("Backup")
             cancel_button = QPushButton("Cancel")
             cancel_button.setObjectName("cancel")
@@ -918,7 +1021,7 @@ class RepoSaveManager(QMainWindow):
             
             # Set dialog properties
             dialog.setLayout(layout)
-            dialog.setFixedSize(400, 150)
+            dialog.setFixedSize(400, 180)
             dialog.setModal(True)
             
             # Connect buttons
