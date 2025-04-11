@@ -475,7 +475,9 @@ class RepoSaveManager(QMainWindow):
         print(f"[DEBUG Paths] Application data directory: {app_data_dir}")
 
         # Define paths relative to the app_data_dir
-        self.repo_saves_path = r"C:\Users\aranr\AppData\LocalLow\semiwork\Repo\saves" # Game files remain absolute
+        local_low_path = os.path.join(os.getenv('APPDATA').replace('Roaming', 'LocalLow'))
+
+        self.repo_saves_path = os.path.join(local_low_path, r"\semiwork\Repo\saves") # Game files remain absolute
         self.backup_path = os.path.join(app_data_dir, "backups")
         self.descriptions_file = os.path.join(self.backup_path, "descriptions.json")
         self.editor_path = os.path.join(app_data_dir, "editor_temp")
