@@ -470,14 +470,21 @@ class RepoSaveManager(QMainWindow):
             local_appdata = os.path.join(Path.home(), 'AppData', 'Local')
             print("[WARN Paths] LOCALAPPDATA not found, using fallback: ", local_appdata)
 
+        # Get AppData path
+        appdata = os.getenv('APPDATA')
+        if not appdata:
+            # Fallback if APPDATA is not set
+            appdata = os.path.join(Path.home(), 'AppData', 'Roaming')
+            print("[WARN Paths] APPDATA not found, using fallback: ", appdata)
+
         # Define the application's data directory within LocalAppData
         app_data_dir = os.path.join(local_appdata, "RepoSaveManager")
         print(f"[DEBUG Paths] Application data directory: {app_data_dir}")
 
-        # Define paths relative to the app_data_dir
-        local_low_path = os.path.join(os.getenv('APPDATA').replace('Roaming', 'LocalLow'))
+        # Get LocalLow path by replacing Roaming with LocalLow in APPDATA path
+        local_low_path = os.path.join(os.path.dirname(appdata), 'LocalLow')
 
-        self.repo_saves_path = os.path.join(local_low_path, r"\semiwork\Repo\saves") # Game files remain absolute
+        self.repo_saves_path = os.path.join(local_low_path, "semiwork\Repo\saves") # Game files remain absolute
         self.backup_path = os.path.join(app_data_dir, "backups")
         self.descriptions_file = os.path.join(self.backup_path, "descriptions.json")
         self.editor_path = os.path.join(app_data_dir, "editor_temp")
