@@ -21,10 +21,10 @@ A simple tool to backup, restore, and edit your save files for the game R.E.P.O.
 
 1.  **Download:** Get the `RepoSaveManager.exe` file from the [Releases](https://github.com/armand0e/Repo-Save-Manager/releases) page of this project.
 2.  **Run:** Double-click `RepoSaveManager.exe` to start the application. You can place the `.exe` file anywhere (like your Desktop).
-3.  **Backup:** Click "Backup Current Save" to make a copy of your latest game save.
+3.  **Backup:** Click "Backup Current Save" to make a copy of your latest game save (or select a specific save from the dropdown)
 4.  **View:** Your backups will appear in the list.
 5.  **Restore:** Select a backup from the list and click "Restore Selected Save" to load it into the game.
-6.  **Edit (Optional):** Select a backup and click "Edit Save" to open the editor window. Make your changes and click "Save Changes".
+6.  **Edit:** Select a backup and click "Edit Save" to open the editor window. Make your changes and click "Save Changes".
 
 **Where are backups stored?**
 
