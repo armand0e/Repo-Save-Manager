@@ -17,10 +17,51 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 import io
 
+# Get the application directory for resource paths
+def get_application_path():
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # If running as compiled EXE
+        return sys._MEIPASS
+    else:
+        # If running as script
+        return os.path.dirname(os.path.abspath(__file__))
+
+# Set up Windows taskbar integration
+if sys.platform == "win32":
+    try:
+        import ctypes
+        # This must be unique across applications to avoid sharing the same taskbar entry
+        app_id = 'SemiWork.RepoSaveManager.1.0.0.0'
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+    except Exception as e:
+        print(f"Failed to set Windows application ID: {e}")
+
+# --- Define Application Icon Path ---
+APP_ICON_PATH = os.path.join(get_application_path(), "reburger.ico")
+
 # --- PFP Caching Setup --- 
 CACHE_DIR = Path.home() / ".cache" / "RepoSaveManager"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_PFP_SIZE = 32 # Size for PFPs in pixels
+
+# --- Custom ComboBox Class for Proper Display ---
+class CustomComboBox(QComboBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # Force update the view every time the popup is hidden (fixes display issues)
+        self.view().pressed.connect(self.handleItemPressed)
+        
+    def handleItemPressed(self, index):
+        self.setCurrentIndex(index.row())
+        self.repaint()  # Force immediate repaint
+        
+    def showPopup(self):
+        super().showPopup()
+        
+    def hidePopup(self):
+        super().hidePopup()
+        # Force update after popup is hidden
+        self.update()
 
 # --- Helper Function for PFP Fetching/Caching --- 
 def fetch_steam_profile_picture(player_id):
@@ -138,6 +179,8 @@ class SaveEditor(QDialog):
         
         # Dictionaries to store player-specific widgets
         self.player_widgets = {} # {player_id: {'health': QLineEdit, 'upgrades': {name: QLineEdit}}}
+        # Dictionary for batch editing widgets
+        self.batch_widgets = {} # {'upgrades': {name: QLineEdit}}
 
         self.setWindowTitle(f"Editing: {os.path.basename(save_file_path)}")
         self.setMinimumSize(900, 600)
@@ -154,7 +197,8 @@ class SaveEditor(QDialog):
 
         # Add tabs
         self.tabview.addTab(self.create_world_tab(), "World")
-        self.tabview.addTab(self.create_player_tab(), "Player")
+        self.tabview.addTab(self.create_player_tab(), "Players")
+        self.tabview.addTab(self.create_batch_edit_tab(), "Batch Edit")
         self.tabview.addTab(self.create_advanced_tab(), "Advanced")
 
         # Buttons
@@ -169,7 +213,6 @@ class SaveEditor(QDialog):
         layout.addLayout(button_layout)
 
     def create_world_tab(self):
-        # ... (Keep existing world tab creation logic using create_entry) ...
         widget = QWidget()
         layout = QVBoxLayout(widget)
         self.level_entry = self.create_entry("Level:", layout)
@@ -182,7 +225,6 @@ class SaveEditor(QDialog):
         return widget
         
     def create_player_tab(self):
-        # ... (Keep existing player tab creation logic with scroll area) ...
         widget = QWidget()
         layout = QVBoxLayout(widget)
         scroll = QScrollArea()
@@ -195,8 +237,70 @@ class SaveEditor(QDialog):
         layout.addWidget(scroll)
         return widget
         
+    def create_batch_edit_tab(self):
+        """Create a new tab for batch editing all players at once"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        # Info label
+        info_label = QLabel("Batch Edit lets you modify all players at once. Changes will apply to every player.")
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("font-style: italic; color: #666666; font-size: 12px;")
+        layout.addWidget(info_label)
+        
+        # Health section
+        health_frame = QFrame()
+        health_layout = QHBoxLayout(health_frame)
+        health_label = QLabel("Health for All Players:")
+        self.batch_health_entry = QLineEdit()
+        self.batch_health_entry.setPlaceholderText("Enter value to set for all players")
+        health_layout.addWidget(health_label)
+        health_layout.addWidget(self.batch_health_entry)
+        layout.addWidget(health_frame)
+        
+        # Separator
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        layout.addWidget(separator)
+        
+        # Upgrades section
+        upgrades_group = QFrame()
+        upgrades_layout = QVBoxLayout(upgrades_group)
+        upgrades_label = QLabel("<b>Upgrades for All Players:</b>")
+        upgrades_layout.addWidget(upgrades_label)
+        
+        # Store widgets for easy access later
+        self.batch_widgets['health'] = self.batch_health_entry
+        self.batch_widgets['upgrades'] = {}
+        
+        # Create upgrade entry fields
+        upgrade_list = ['Health', 'Stamina', 'ExtraJump', 'Launch', 'MapPlayerCount', 'Speed', 'Strength', 'Range', 'Throw']
+        for upgrade_name in upgrade_list:
+            upgrade_frame = QFrame()
+            upgrade_layout = QHBoxLayout(upgrade_frame)
+            upgrade_label = QLabel(f"{upgrade_name} for All:")
+            entry = QLineEdit()
+            entry.setPlaceholderText(f"Set {upgrade_name} for all players")
+            upgrade_layout.addWidget(upgrade_label)
+            upgrade_layout.addWidget(entry)
+            upgrades_layout.addWidget(upgrade_frame)
+            
+            # Store reference to this widget
+            self.batch_widgets['upgrades'][upgrade_name] = entry
+            
+        layout.addWidget(upgrades_group)
+        
+        # Apply button
+        apply_button = QPushButton("Apply Batch Changes to All Players")
+        apply_button.setObjectName("primary")
+        apply_button.clicked.connect(self.apply_batch_changes)
+        layout.addWidget(apply_button)
+        
+        layout.addStretch()
+        return widget
+        
     def create_advanced_tab(self):
-        # ... (Keep existing advanced tab creation logic with JsonHighlighter) ...
         widget = QWidget()
         layout = QVBoxLayout(widget)
         self.json_text = QTextEdit()
@@ -206,7 +310,6 @@ class SaveEditor(QDialog):
         return widget
 
     def create_entry(self, label_text, parent_layout):
-        # ... (Keep existing entry creation logic) ...
         frame = QFrame()
         frame_layout = QHBoxLayout(frame)
         label_widget = QLabel(label_text)
@@ -215,6 +318,29 @@ class SaveEditor(QDialog):
         frame_layout.addWidget(entry)
         parent_layout.addWidget(frame)
         return entry
+
+    def apply_batch_changes(self):
+        """Apply batch changes to all player fields"""
+        # Get values from batch edit fields
+        try:
+            batch_health = self.batch_health_entry.text().strip()
+            if batch_health:
+                # Apply health to all player widgets
+                for player_id, widgets in self.player_widgets.items():
+                    widgets['health'].setText(batch_health)
+                    
+            # Apply upgrade values to all players
+            for upgrade_name, batch_entry in self.batch_widgets['upgrades'].items():
+                batch_value = batch_entry.text().strip()
+                if batch_value:
+                    # Apply this upgrade value to all players
+                    for player_id, widgets in self.player_widgets.items():
+                        if upgrade_name in widgets['upgrades']:
+                            widgets['upgrades'][upgrade_name].setText(batch_value)
+            
+            QMessageBox.information(self, "Success", "Batch changes applied to all players")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to apply batch changes: {str(e)}")
 
     def load_save(self):
         try:
@@ -442,6 +568,14 @@ class RepoSaveManager(QMainWindow):
         self.setWindowTitle("Save Backup Manager")
         self.setMinimumSize(800, 600)
         
+        # Check if icon file exists and set it
+        if os.path.exists(APP_ICON_PATH):
+            app_icon = QIcon(APP_ICON_PATH)
+            self.setWindowIcon(app_icon)
+            print(f"Set application icon from {APP_ICON_PATH}")
+        else:
+            print(f"Warning: Icon file not found at {APP_ICON_PATH}")
+        
         self.setup_paths() # Call path setup FIRST
         
         # Initialize descriptions AFTER paths are set
@@ -551,9 +685,10 @@ class RepoSaveManager(QMainWindow):
                 border-radius: 12px;
                 gridline-color: #3a3a3c;
                 color: #ffffff;
+                font-size: 15px;
             }
             QTableWidget::item {
-                padding: 12px;
+                padding: 8px;
                 border-bottom: 1px solid #3a3a3c;
                 color: #ffffff;
                 background-color: #2c2c2e;
@@ -605,19 +740,38 @@ class RepoSaveManager(QMainWindow):
                 color: #ffffff;
                 border: 1px solid #3a3a3c;
                 border-radius: 8px;
-                padding: 8px;
+                padding: 10px;
+                min-width: 300px;
+                margin-bottom: 16px;
             }
             QComboBox::drop-down {
                 border: none;
                 width: 20px;
             }
+            QComboBox::down-arrow {
+                width: 12px;
+                height: 12px;
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIgNEw2IDggMTAgNCIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIvPgo8L3N2Zz4K);
+            }
+            QComboBox:on {
+                border: 1px solid #007AFF;
+            }
             QComboBox QAbstractItemView {
                 background-color: #2c2c2e;
                 color: #ffffff;
-                selection-background-color: #0A84FF;
+                selection-background-color: #007AFF;
                 selection-color: #ffffff;
                 border: 1px solid #3a3a3c;
                 border-radius: 8px;
+                padding: 4px;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 25px;
+                padding: 5px;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #007AFF;
+                color: #ffffff;
             }
             QMessageBox {
                 background-color: #1c1c1e;
@@ -675,7 +829,7 @@ class RepoSaveManager(QMainWindow):
     def setup_ui_elements(self):
         # --- Top section - Quick actions --- 
         quick_actions_layout = QHBoxLayout()
-        self.backup_btn = QPushButton("⬇️ Backup Current Save")
+        self.backup_btn = QPushButton("⬇️ Backup Save")
         self.backup_btn.setObjectName("primary")
         self.restore_btn = QPushButton("⬆️ Restore Selected Save")
         self.open_folder_btn = QPushButton("📂 Open Save Folder")
@@ -698,22 +852,29 @@ class RepoSaveManager(QMainWindow):
         self.layout.addWidget(table_label)
         
         self.save_table = QTableWidget()
-        # Columns: Save Name, Players, Day, Notes (Removed Haul)
-        self.save_table.setColumnCount(4) 
-        self.save_table.setHorizontalHeaderLabels(["Save Name", "Players", "Day", "Notes"])
-        # Adjust resize modes
-        self.save_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch) # Save Name
-        self.save_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents) # Players
-        # Removed Haul column (was index 2)
-        self.save_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents) # Day (now index 2)
-        self.save_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch) # Notes (now index 3)
+        # Columns: Save Name, Players, Notes, Day, Last Modified
+        self.save_table.setColumnCount(5) 
+        self.save_table.setHorizontalHeaderLabels(["Save Name", "Players", "Notes", "Day", "Last Modified"])
+        # Make columns resizable by user
+        self.save_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        # Set initial column widths but allow resizing
+        self.save_table.horizontalHeader().resizeSection(0, 250)  # Save Name
+        self.save_table.horizontalHeader().resizeSection(1, 120)  # Players
+        self.save_table.horizontalHeader().resizeSection(2, 250)  # Notes
+        self.save_table.horizontalHeader().resizeSection(3, 60)   # Day
+        self.save_table.horizontalHeader().resizeSection(4, 150)  # Last Modified
+        # Stretch only the last column
+        self.save_table.horizontalHeader().setStretchLastSection(True)  # Make last column fill remaining space
+        
+        # Enable column moving
+        self.save_table.horizontalHeader().setSectionsMovable(True)
         
         self.save_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.save_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.save_table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
-        # Ensure delegate is set for the correct column (Notes is now column 3)
-        self.save_table.setItemDelegateForColumn(3, DescriptionDelegate()) 
-        self.save_table.verticalHeader().setDefaultSectionSize(50) # Set row height
+        # Ensure delegate is set for the correct column (Notes is now column 2)
+        self.save_table.setItemDelegateForColumn(2, DescriptionDelegate()) 
+        self.save_table.verticalHeader().setDefaultSectionSize(60) # Increased row height
         self.layout.addWidget(self.save_table)
         
         # --- Bottom actions --- 
@@ -858,25 +1019,40 @@ class RepoSaveManager(QMainWindow):
                 pfp_widget.setLayout(pfp_layout)
                 self.save_table.setCellWidget(row, 1, pfp_widget)
                 
-                # --- Column 2: Day (previously Haul) --- 
-                day_item = QTableWidgetItem(day_str)
-                day_item.setFlags(day_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                day_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter) # Center vertically AND horizontally
-                self.save_table.setItem(row, 2, day_item) # Set item at index 2
-                    
-                # --- Column 3: Notes (Editable) --- 
+                # --- Column 2: Notes (Editable) --- 
                 desc = self.descriptions.get(item_name, "") # Gets saved note or empty string
                 desc_item = QTableWidgetItem(desc)
                 desc_item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter) # Center vertically
-                self.save_table.setItem(row, 3, desc_item) # Set item at index 3
+                self.save_table.setItem(row, 2, desc_item) # Set item at column 2 (Notes before Day)
+                
+                # --- Column 3: Day --- 
+                day_item = QTableWidgetItem(day_str)
+                day_item.setFlags(day_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                day_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter) # Center vertically AND horizontally
+                self.save_table.setItem(row, 3, day_item) # Set item at column 3
+                
+                # --- Column 4: Last Modified --- 
+                try:
+                    # Get the last modified time of the directory
+                    last_mod_time = os.path.getmtime(item_path)
+                    last_mod_datetime = datetime.fromtimestamp(last_mod_time)
+                    last_mod_str = last_mod_datetime.strftime("%Y-%m-%d %H:%M")
+                except Exception as e:
+                    print(f"Error getting modification time for {item_path}: {e}")
+                    last_mod_str = "Unknown"
+                
+                mod_item = QTableWidgetItem(last_mod_str)
+                mod_item.setFlags(mod_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                mod_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.save_table.setItem(row, 4, mod_item)
                 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to list saves: {str(e)}")
 
     def on_description_changed(self, item):
         """Handle description changes"""
-        # Check if the changed item is in the Notes column (index 3)
-        if item.column() == 3: 
+        # Check if the changed item is in the Notes column (index 2)
+        if item.column() == 2: 
             save_name_item = self.save_table.item(item.row(), 0)
             if save_name_item: # Ensure save name item exists
                  save_name = save_name_item.text()
@@ -930,7 +1106,7 @@ class RepoSaveManager(QMainWindow):
                 QMessageBox.warning(self, "Warning", "No saves found in the game folder")
                 return
             
-            # Create dialog
+            # Create dialog with a different approach using QListWidget instead of problematic QComboBox
             dialog = QDialog(self)
             dialog.setWindowTitle("Select Save to Backup")
             dialog.setStyleSheet("""
@@ -943,7 +1119,7 @@ class RepoSaveManager(QMainWindow):
                     margin-bottom: 12px;
                     padding: 0;
                 }
-                QComboBox {
+                QListWidget {
                     background-color: #2c2c2e;
                     color: #ffffff;
                     border: 1px solid #3a3a3c;
@@ -952,22 +1128,17 @@ class RepoSaveManager(QMainWindow):
                     min-width: 300px;
                     margin-bottom: 16px;
                 }
-                QComboBox::drop-down {
-                    border: none;
-                    width: 20px;
+                QListWidget::item {
+                    min-height: 30px;
+                    padding: 5px 10px;
+                    border-radius: 4px;
                 }
-                QComboBox::down-arrow {
-                    width: 12px;
-                    height: 12px;
-                }
-                QComboBox QAbstractItemView {
-                    background-color: #2c2c2e;
+                QListWidget::item:selected {
+                    background-color: #007AFF;
                     color: #ffffff;
-                    selection-background-color: #0A84FF;
-                    selection-color: #ffffff;
-                    border: 1px solid #3a3a3c;
-                    border-radius: 8px;
-                    padding: 4px;
+                }
+                QListWidget::item:hover {
+                    background-color: #3a3a3c;
                 }
                 QPushButton {
                     background-color: #0A84FF;
@@ -1003,11 +1174,41 @@ class RepoSaveManager(QMainWindow):
             label = QLabel("Select a save to backup:")
             layout.addWidget(label)
             
-            # Create dropdown
-            combo = QComboBox()
-            combo.addItem("Latest Save")
-            combo.addItems(sorted(saves, reverse=True))
-            layout.addWidget(combo)
+            # Create list widget instead of combo box
+            list_widget = QTableWidget()
+            list_widget.setColumnCount(1)
+            list_widget.horizontalHeader().setVisible(False)
+            list_widget.verticalHeader().setVisible(False)
+            list_widget.setShowGrid(False)
+            list_widget.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            list_widget.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            list_widget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+            list_widget.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            
+            # Add items
+            list_widget.setRowCount(len(saves) + 1)
+            
+            # Add "Latest Save" as first item
+            latest_item = QTableWidgetItem("Latest Save")
+            latest_item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter)
+            list_widget.setItem(0, 0, latest_item)
+            
+            # Add other saves
+            for i, save in enumerate(sorted(saves, reverse=True)):
+                item = QTableWidgetItem(save)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter)
+                list_widget.setItem(i + 1, 0, item)
+            
+            # Select first item by default
+            list_widget.selectRow(0)
+            
+            # Set row height
+            list_widget.verticalHeader().setDefaultSectionSize(35)
+            
+            # Set maximum height
+            list_widget.setMaximumHeight(180)
+            
+            layout.addWidget(list_widget)
             
             # Add buttons
             button_layout = QHBoxLayout()
@@ -1021,7 +1222,7 @@ class RepoSaveManager(QMainWindow):
             
             # Set dialog properties
             dialog.setLayout(layout)
-            dialog.setFixedSize(400, 180)
+            dialog.setFixedSize(400, 300)
             dialog.setModal(True)
             
             # Connect buttons
@@ -1031,9 +1232,11 @@ class RepoSaveManager(QMainWindow):
             # Show dialog and get result
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 # Get selected save
-                selected_save = combo.currentText()
-                if selected_save == "Latest Save":
+                selected_row = list_widget.currentRow()
+                if selected_row == 0:  # "Latest Save"
                     selected_save = max(saves)
+                else:
+                    selected_save = list_widget.item(selected_row, 0).text()
                 
                 source_path = os.path.join(self.repo_saves_path, selected_save)
                 dest_path = os.path.join(self.backup_path, selected_save)
@@ -1172,7 +1375,25 @@ class RepoSaveManager(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setStyle("Fusion")
+    
+    # Set application properties
+    app.setApplicationName("Repo Save Manager")
+    app.setOrganizationName("SemiWork")
+    app.setApplicationDisplayName("Repo Save Manager")
+    
+    # Check if icon file exists and set it
+    if os.path.exists(APP_ICON_PATH):
+        app_icon = QIcon(APP_ICON_PATH)
+        app.setWindowIcon(app_icon)
+        print(f"Set application icon from {APP_ICON_PATH}")
+    else:
+        print(f"Warning: Icon file not found at {APP_ICON_PATH}")
+    
     window = RepoSaveManager()
+    
+    # Also set the icon on the main window
+    if os.path.exists(APP_ICON_PATH):
+        window.setWindowIcon(QIcon(APP_ICON_PATH))
+    
     window.show()
     sys.exit(app.exec()) 

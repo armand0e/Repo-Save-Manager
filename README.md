@@ -1,7 +1,7 @@
 # Repo Save Manager
 
 <div align="center">
-  <img src="docs/repo_logo.png" alt="Repo Save Manager Logo" width="200" height="200" style="margin-bottom: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+  <img src="docs/reburger_logo.png" alt="Repo Save Manager Logo" width="200" height="200" style="margin-bottom: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
   
   <h3>A professional tool for backing up, restoring, and editing your R.E.P.O. game saves</h3>
 
@@ -118,6 +118,7 @@ Backups are stored in: `%LOCALAPPDATA%\RepoSaveManager\backups`
 
 - Save encryption/decryption methods based on [N0edL's R.E.P.O-Save-Editor](https://github.com/N0edL/R.E.P.O-Save-Editor)
 - UI design improvements and additional features by [armand0e](https://github.com/armand0e)
+- Logo artwork by [Aceman3k](https://github.com/Aceman3k)
 
 ## 🤝 Contributing
 

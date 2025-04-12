@@ -1,2 +1,4 @@
 .venv
 build
+*.spec
+version_info.txt
