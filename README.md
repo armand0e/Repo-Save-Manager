@@ -1,71 +1,134 @@
 # Repo Save Manager
 
-A simple tool to backup, restore, and edit your save files for the game R.E.P.O.
+<div align="center">
+  <img src="docs/repo_logo.png" alt="Repo Save Manager Logo" width="200" height="200" style="margin-bottom: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+  
+  <h3>A professional tool for backing up, restoring, and editing your R.E.P.O. game saves</h3>
 
-## What it Does
+  ![License](https://img.shields.io/github/license/armand0e/Repo-Save-Manager?style=for-the-badge)
+  ![Latest Release](https://img.shields.io/github/v/release/armand0e/Repo-Save-Manager?style=for-the-badge)
+  ![Downloads](https://img.shields.io/github/downloads/armand0e/Repo-Save-Manager/total?style=for-the-badge)
+</div>
 
-*   **Keeps Your Saves Safe:** Easily create backups of your R.E.P.O game saves.
-*   **Restores Backups:** Quickly load a backed-up save back into the game.
-*   **Manages Backups:**
-    *   See all your backups in a list.
-    *   View basic info like Players and Day number directly in the list.
-    *   Duplicate backups if you want copies.
-    *   Delete old backups you don't need anymore.
-    *   Add your own notes to remember what a backup was for.
-    *   Open the folder where backups are stored.
-*   **Edits Saves (Optional):**
-    *   Includes an editor to change things like your Level, Currency, Lives, Player Health, and Upgrades.
-    *   Also has an advanced view for raw JSON editing (use with caution!).
+## ✨ Features
 
-## How to Use (Easy Version - Recommended)
+- **💾 Save Management**
+  - Create backups of any R.E.P.O game save with an intuitive interface
+  - Restore previously backed-up saves with a single click
+  - Organize backups with custom descriptions
+  - View player information and save stats directly in the app
 
-1.  **Download:** Get the `RepoSaveManager.exe` file from the [Releases](https://github.com/armand0e/Repo-Save-Manager/releases) page of this project.
-2.  **Run:** Double-click `RepoSaveManager.exe` to start the application. You can place the `.exe` file anywhere (like your Desktop).
-3.  **Backup:** Click "Backup Current Save" to make a copy of your latest game save (or select a specific save from the dropdown)
-4.  **View:** Your backups will appear in the list.
-5.  **Restore:** Select a backup from the list and click "Restore Selected Save" to load it into the game.
-6.  **Edit:** Select a backup and click "Edit Save" to open the editor window. Make your changes and click "Save Changes".
+- **🔍 Advanced Visualization**
+  - See Steam profile pictures of all players in each save
+  - View save day/level at a glance
+  - Add notes to remember important details about your backups
 
-**Where are backups stored?**
+- **🛠️ Edit Capabilities**
+  - Built-in save editor with user-friendly interface
+  - Modify game values (Currency, Lives, Health, etc.)
+  - Adjust player upgrades and team properties
+  - Advanced mode for experienced users
 
-The application automatically stores backups and notes in a dedicated folder on your computer:
-`C:\Users\YOUR_USERNAME\AppData\Local\RepoSaveManager\backups`
-(You can open this folder easily using the "Open Save Folder" button in the app).
+## 📸 Screenshots
 
-## For Advanced Users (Running from Source Code)
+<div align="center">
+  <img src="docs/main_screen.png" alt="Main Interface" width="80%" style="margin-bottom: 20px; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.2);">
+  <img src="docs/editor_screen.png" alt="Save Editor" width="80%" style="margin-bottom: 20px; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.2);">
+</div>
 
-If you prefer to run the tool directly using Python:
+## 🚀 Installation
 
-1.  **Install Python:** Make sure you have Python 3.8 or newer installed.
-2.  **Download Code:** Clone or download the source code from this repository.
-3.  **Open Terminal:** Navigate to the downloaded folder in your command prompt or terminal.
-4.  **(Optional) Create Virtual Environment:**
-    ```bash
-    python -m venv venv
-    # On Windows: venv\Scripts\activate
-    # On macOS/Linux: source venv/bin/activate
-    ```
-5.  **Install Requirements:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-6.  **Run:**
-    ```bash
-    python repo_save_manager.py
-    ```
+### Easy Installation (Recommended)
 
-## Dependencies
+1. **Download** the latest `RepoSaveManager.exe` from the [Releases](https://github.com/armand0e/Repo-Save-Manager/releases) page
+2. **Run** the executable - no installation required!
 
-This tool uses the following libraries:
+### For Developers (Source Code)
 
-*   PyQt6 (for the user interface)
-*   requests (for fetching Steam profile pictures)
-*   pycryptodome (for save file encryption/decryption)
+1. **Clone** this repository
+   ```bash
+   git clone https://github.com/armand0e/Repo-Save-Manager.git
+   cd Repo-Save-Manager
+   ```
 
-## Credits
+2. **Set up** a virtual environment (recommended)
+   ```bash
+   python -m venv venv
+   # Windows
+   venv\Scripts\activate
+   # macOS/Linux
+   source venv/bin/activate
+   ```
 
-*   The save editing features and encryption methods were heavily based on the great work done by N0edL in the original [R.E.P.O-Save-Editor](https://github.com/N0edL/R.E.P.O-Save-Editor).
+3. **Install** dependencies
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Contributing
+4. **Run** the application
+   ```bash
+   python repo_save_manager.py
+   ```
 
-Contributions, issues, and feature requests are welcome. Feel free to check [issues page](https://github.com/armand0e/Repo-Save-Manager/issues) if you want to contribute
+## 📖 How to Use
+
+### Backing Up Saves
+
+1. Launch the application
+2. Click the "⬇️ Backup Save" button
+3. Select the save you want to back up from the dropdown
+4. Click "Backup" to confirm
+
+### Restoring Saves
+
+1. Select a save from your backup list
+2. Click "⬆️ Restore Selected Save"
+3. Confirm the action when prompted
+
+### Editing Saves
+
+1. Select a save from your backup list
+2. Click "✏️ Edit Save"
+3. Use the intuitive editor interface to modify:
+   - World stats (Day, Currency, Lives)
+   - Player stats (Health, Upgrades)
+   - Advanced settings (for experienced users)
+4. Click "💾 Save Changes" when finished
+
+### Managing Your Backups
+
+- Add descriptions to your saves for easy identification
+- Delete old backups you no longer need
+- Duplicate important backups as needed
+- Open the backup folder directly from the app
+
+## 🔧 Technical Details
+
+### Backup Location
+
+Backups are stored in: `%LOCALAPPDATA%\RepoSaveManager\backups`
+
+### Dependencies
+
+- **PyQt6**: Modern UI framework
+- **Requests**: For fetching Steam profile pictures
+- **Pycryptodome**: For secure save file encryption/decryption
+
+## 🙏 Credits
+
+- Save encryption/decryption methods based on [N0edL's R.E.P.O-Save-Editor](https://github.com/N0edL/R.E.P.O-Save-Editor)
+- UI design improvements and additional features by [armand0e](https://github.com/armand0e)
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to:
+
+- Report bugs
+- Suggest new features
+- Submit pull requests
+
+Please check the [issues page](https://github.com/armand0e/Repo-Save-Manager/issues) first.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
