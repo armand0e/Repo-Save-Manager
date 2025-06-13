@@ -1,0 +1,207 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on tags like v1.0, v2.3.4
+
+jobs:
+  # Placeholder for Windows build job
+  build_windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x' # Or specify your project's Python version
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run build script
+        run: python build.py
+
+      - name: Upload Windows Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Repo-Save-Manager-Windows-exe # Artifact name for internal transfer
+          path: dist/Repo Save Manager.exe
+
+  # Placeholder for Linux build job
+  build_linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x' # Or specify your project's Python version
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Linux packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev fakeroot patchelf desktop-file-utils libgl1-mesa-glx libegl1-mesa libxcb-xinerama0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-randr0 libxcb-image0 libxcb-icccm4 libxcb-keysyms1 libxcb-render-util0
+          # Download linuxdeploy and appimagetool
+          wget -c https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy.AppImage
+          wget -c https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool.AppImage
+          chmod +x linuxdeploy.AppImage appimagetool.AppImage
+          sudo mv linuxdeploy.AppImage /usr/local/bin/linuxdeploy
+          sudo mv appimagetool.AppImage /usr/local/bin/appimagetool
+
+      - name: Run build script (generates .deb and PyInstaller exec for AppImage)
+        run: python build.py
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }} # Pass the tag to build.py
+
+      - name: Create AppImage
+        run: |
+          # The PyInstaller executable is at dist/Repo Save Manager
+          # linuxdeploy will create an AppDir
+          # Use the .desktop file and icon from the .deb build process or create them anew for AppImage
+          # For simplicity, let's assume build.py placed a suitable icon where linuxdeploy can find it
+          # or linuxdeploy can find it from the system if the .deb was installed (not the case here)
+
+          # We need a .desktop file for linuxdeploy. build.py creates one for the .deb,
+          # let's copy it or create a similar one for the AppImage.
+          # Assuming build.py created 'dist/repo-save-manager_VERSION_ARCH/usr/share/applications/repo-save-manager.desktop'
+          # and an icon 'dist/repo-save-manager_VERSION_ARCH/usr/share/icons/hicolor/128x128/apps/repo-save-manager.png'
+          # This part is tricky as build.py's .deb paths are internal to the .deb staging dir.
+
+          # Let's create a minimal .desktop file for AppImage specifically
+          APP_NAME="Repo Save Manager"
+          LOWER_APP_NAME="repo-save-manager"
+          APPDIR_PATH="AppDir" # linuxdeploy default output
+          mkdir -p "${APPDIR_PATH}/usr/share/applications/"
+          mkdir -p "${APPDIR_PATH}/usr/share/icons/hicolor/128x128/apps/"
+
+          # Create .desktop file for AppImage
+          cat <<EOF > "${APPDIR_PATH}/usr/share/applications/${LOWER_APP_NAME}.desktop"
+          [Desktop Entry]
+          Version=1.0
+          Name=${APP_NAME}
+          Comment=Manage repository saves
+          Exec=AppRun # This will point to the script linuxdeploy creates
+          Icon=${LOWER_APP_NAME}
+          Terminal=false
+          Type=Application
+          Categories=Utility;Development;
+          EOF
+
+          # Copy icon (try reburger.png, then reburger.ico)
+          ICON_SOURCE=""
+          if [ -f "reburger.png" ]; then
+            ICON_SOURCE="reburger.png"
+          elif [ -f "reburger.ico" ]; then
+            ICON_SOURCE="reburger.ico"
+          fi
+
+          if [ -n "$ICON_SOURCE" ]; then
+            cp "$ICON_SOURCE" "${APPDIR_PATH}/usr/share/icons/hicolor/128x128/apps/${LOWER_APP_NAME}.png" # Convert/copy to .png
+          else
+            echo "Warning: No icon found for AppImage."
+          fi
+
+          # Run linuxdeploy
+          # The executable from PyInstaller is at 'dist/Repo Save Manager'
+          # The --appimage-extract-and-run is important for AppImage-based tools
+          APPIMAGE_EXTRACT_AND_RUN=1 linuxdeploy --appdir "${APPDIR_PATH}"            -e "dist/Repo Save Manager"            -d "${APPDIR_PATH}/usr/share/applications/${LOWER_APP_NAME}.desktop"            -i "${APPDIR_PATH}/usr/share/icons/hicolor/128x128/apps/${LOWER_APP_NAME}.png"            --output appimage
+
+          # appimagetool will be called by linuxdeploy if --output appimage is used and appimagetool is found
+          # If not, one might need to call it explicitly:
+          # APPIMAGE_EXTRACT_AND_RUN=1 appimagetool "${APPDIR_PATH}"
+          # This should create Repo_Save_Manager-x86_64.AppImage or similar in current dir.
+          # Rename it to a more standard name for upload.
+          # The name linuxdeploy generates can be a bit complex. Let's find it.
+          # It usually includes APPNAME-ARCH.AppImage.
+          # For PyInstaller bundled apps, linuxdeploy might not need to bundle many Qt libs if PyI got them.
+
+          # Verify AppImage exists (name might vary slightly based on linuxdeploy version)
+          # Common pattern: Name from .desktop-ARCH.AppImage or ExecutableName-ARCH.AppImage
+          # Let's assume linuxdeploy creates "Repo_Save_Manager-x86_64.AppImage" or similar.
+          # We will find it and rename it.
+          find . -name "Repo_Save_Manager*.AppImage" -exec mv {} "dist/Repo-Save-Manager-Linux.AppImage" \;
+
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1 # For running AppImage based tools
+          # VERSION: ${{ github.ref_name }} # linuxdeploy might use this if available via env
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Repo-Save-Manager-Linux-Artifacts
+          path: |
+            dist/*.deb
+            dist/*.AppImage
+          retention-days: 7 # Optional: how long to keep workflow artifacts
+
+  create_release:
+    needs: [build_windows, build_linux] # Run after both builds complete
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create a release
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/ # Download all artifacts to this directory
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Windows Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./artifacts/Repo-Save-Manager-Windows-exe/Repo Save Manager.exe # Corrected path to the downloaded artifact
+          asset_name: Repo-Save-Manager-${{ github.ref_name }}-Windows.exe
+          asset_content_type: application/octet-stream
+
+      - name: Find .deb file
+        id: find_deb
+        run: |
+          DEB_FILE=$(find artifacts/Repo-Save-Manager-Linux-Artifacts -name "*.deb" -type f)
+          echo "Found .deb: $DEB_FILE"
+          echo "filepath=$DEB_FILE" >> $GITHUB_OUTPUT
+
+      - name: Upload Linux .deb Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          # Path will be artifacts/Repo-Save-Manager-Linux-Artifacts/THE_DEB_FILE.deb
+          # We need to find the .deb file name. It includes version and arch.
+          asset_path: ${{ steps.find_deb.outputs.filepath }} # This will be set by a new step
+          asset_name: Repo-Save-Manager-${{ github.ref_name }}-Linux.deb # Simplified name for release
+          asset_content_type: application/vnd.debian.binary-package
+        id: upload_deb
+
+      - name: Upload Linux .AppImage Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          # Path will be artifacts/Repo-Save-Manager-Linux-Artifacts/THE_APPIMAGE_FILE.AppImage
+          asset_path: artifacts/Repo-Save-Manager-Linux-Artifacts/Repo-Save-Manager-Linux.AppImage # Path to the AppImage after download and rename
+          asset_name: Repo-Save-Manager-${{ github.ref_name }}.AppImage # Simplified name for release
+          asset_content_type: application/x-appimage
+        id: upload_appimage
