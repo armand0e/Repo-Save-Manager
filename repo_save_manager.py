@@ -16,6 +16,7 @@ import requests
 import xml.etree.ElementTree as ET
 from pathlib import Path
 import io
+import platform # Added platform import
 
 # Get the application directory for resource paths
 def get_application_path():
@@ -597,39 +598,61 @@ class RepoSaveManager(QMainWindow):
         self.update_button_states() # Set initial button states
 
     def setup_paths(self):
-        # Get Local AppData path
-        local_appdata = os.getenv('LOCALAPPDATA')
-        if not local_appdata:
-            # Fallback if LOCALAPPDATA is not set (unlikely on Windows)
-            local_appdata = os.path.join(Path.home(), 'AppData', 'Local')
-            print("[WARN Paths] LOCALAPPDATA not found, using fallback: ", local_appdata)
+        system = platform.system()
 
-        # Get AppData path
-        appdata = os.getenv('APPDATA')
-        if not appdata:
-            # Fallback if APPDATA is not set
-            appdata = os.path.join(Path.home(), 'AppData', 'Roaming')
-            print("[WARN Paths] APPDATA not found, using fallback: ", appdata)
+        if system == "Windows":
+            # Get Local AppData path
+            local_appdata_env = os.getenv('LOCALAPPDATA')
+            if not local_appdata_env:
+                # Fallback if LOCALAPPDATA is not set (unlikely on Windows)
+                local_appdata_path = Path.home() / 'AppData' / 'Local'
+                print("[WARN Paths] LOCALAPPDATA not found, using fallback: ", local_appdata_path)
+            else:
+                local_appdata_path = Path(local_appdata_env)
 
-        # Define the application's data directory within LocalAppData
-        app_data_dir = os.path.join(local_appdata, "RepoSaveManager")
-        print(f"[DEBUG Paths] Application data directory: {app_data_dir}")
+            # Get AppData path
+            appdata_env = os.getenv('APPDATA')
+            if not appdata_env:
+                # Fallback if APPDATA is not set
+                appdata_path = Path.home() / 'AppData' / 'Roaming'
+                print("[WARN Paths] APPDATA not found, using fallback: ", appdata_path)
+            else:
+                appdata_path = Path(appdata_env)
 
-        # Get LocalLow path by replacing Roaming with LocalLow in APPDATA path
-        local_low_path = os.path.join(os.path.dirname(appdata), 'LocalLow')
+            # Define the application's data directory within LocalAppData
+            self.app_data_dir = local_appdata_path / "RepoSaveManager"
+            print(f"[DEBUG Paths] Application data directory (Windows): {self.app_data_dir}")
 
-        self.repo_saves_path = os.path.join(local_low_path, "semiwork\Repo\saves") # Game files remain absolute
-        self.backup_path = os.path.join(app_data_dir, "backups")
-        self.descriptions_file = os.path.join(self.backup_path, "descriptions.json")
-        self.editor_path = os.path.join(app_data_dir, "editor_temp")
+            # Get LocalLow path by replacing Roaming with LocalLow in APPDATA path
+            local_low_path = appdata_path.parent / 'LocalLow'
+            self.repo_saves_path = local_low_path / "semiwork" / "Repo" / "saves" # Game files remain absolute
+
+        elif system == "Linux":
+            self.repo_saves_path = Path.home() / ".steam" / "debian-installation" / "steamapps" / "compatdata" / "3241660" / "pfx" / "drive_c" / "users" / "steamuser" / "AppData" / "LocalLow" / "semiwork" / "Repo" / "saves"
+            self.app_data_dir = Path.home() / ".local" / "share" / "RepoSaveManager"
+            # CACHE_DIR is already defined globally and is XDG compliant for Linux: Path.home() / ".cache" / "RepoSaveManager"
+            print(f"[DEBUG Paths] Application data directory (Linux): {self.app_data_dir}")
+            print(f"[DEBUG Paths] Repo saves path (Linux): {self.repo_saves_path}")
+
+        else:
+            # Fallback for other OSes - you might want to raise an error or use a default
+            print(f"[WARN Paths] Unsupported OS: {system}. Using default paths.")
+            self.app_data_dir = Path.home() / "RepoSaveManagerData"
+            self.repo_saves_path = Path.home() / "RepoGameSaves" # Placeholder
+
+        # Common paths derived from app_data_dir
+        self.backup_path = self.app_data_dir / "backups"
+        self.descriptions_file = self.backup_path / "descriptions.json"
+        self.editor_path = self.app_data_dir / "editor_temp"
         
         # Create directories if they don't exist
-        print(f"[DEBUG Paths] Ensuring AppData dir exists: {app_data_dir}")
-        os.makedirs(app_data_dir, exist_ok=True)
+        # CACHE_DIR is created at startup globally
+        print(f"[DEBUG Paths] Ensuring AppData dir exists: {self.app_data_dir}")
+        self.app_data_dir.mkdir(parents=True, exist_ok=True)
         print(f"[DEBUG Paths] Ensuring backup path exists: {self.backup_path}")
-        os.makedirs(self.backup_path, exist_ok=True)
+        self.backup_path.mkdir(parents=True, exist_ok=True)
         print(f"[DEBUG Paths] Ensuring editor path exists: {self.editor_path}")
-        os.makedirs(self.editor_path, exist_ok=True)
+        self.editor_path.mkdir(parents=True, exist_ok=True)
 
     def setup_styling(self):
          # Set modern dark mode styling
