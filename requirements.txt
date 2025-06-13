@@ -1,6 +1,6 @@
 PyQt6==6.8.1
 PyQt6-Qt6==6.8.2
 PyQt6-sip==13.10.0
-requests==2.31.0
+requests==2.32.4
 pycryptodome==3.20.0
 pyinstaller==6.12.0
