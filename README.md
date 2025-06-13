@@ -102,11 +102,27 @@
 - Duplicate important backups as needed
 - Open the backup folder directly from the app
 
+## 🐧 Linux Support
+
+The Repo Save Manager now officially supports Linux!
+
+- **Game Save Path (Proton/Steam):** When running R.E.P.O. through Proton on Linux, the game saves are typically located at:
+  `~/.steam/debian-installation/steamapps/compatdata/3241660/pfx/drive_c/users/steamuser/AppData/LocalLow/semiwork/Repo/saves`
+
+- **Application Data:** Your backups, custom descriptions, and temporary editor files are stored in:
+  `~/.local/share/RepoSaveManager`
+
+- **Cache:** Steam profile pictures and other cached data are stored in:
+  `~/.cache/RepoSaveManager`
+
+Please ensure these paths are accessible and that the application has the necessary permissions.
+
 ## 🔧 Technical Details
 
-### Backup Location
+### Backup Locations
 
-Backups are stored in: `%LOCALAPPDATA%\RepoSaveManager\backups`
+- **Windows:** Backups are stored in: `%LOCALAPPDATA%\RepoSaveManager\backups`
+- **Linux:** Backups are stored in: `~/.local/share/RepoSaveManager/backups` (as part of the application data)
 
 ### Dependencies
 
