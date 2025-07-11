@@ -625,8 +625,14 @@ class SettingsDialog(QDialog):
         display_layout.addWidget(self.show_backup_checkbox)
         
         self.show_ingame_checkbox = QCheckBox("Show In-Game Saves")
-        self.show_ingame_checkbox.setToolTip("Show in-game saves in the save list")
+        self.show_ingame_checkbox.setToolTip("Show in-game saves in the save list\n(Only shown when Live Edits is enabled)")
         display_layout.addWidget(self.show_ingame_checkbox)
+        
+        # Add note about the dependency
+        note_label = QLabel("Note: In-game saves are only visible when Live Edits is enabled")
+        note_label.setStyleSheet("color: #666666; font-size: 11px; font-style: italic;")
+        note_label.setWordWrap(True)
+        display_layout.addWidget(note_label)
         
         layout.addWidget(save_group)
         layout.addWidget(display_group)
@@ -1196,8 +1202,11 @@ class RepoSaveManager(QMainWindow):
                         'is_backup': True
                     })
             
-            # Add in-game saves if enabled
-            if self.settings.get("show_in_game_saves", True) and os.path.exists(self.repo_saves_path):
+            # Add in-game saves if enabled and live edits is enabled
+            # Hide in-game saves when live edits is disabled as they cannot be safely edited
+            if (self.settings.get("show_in_game_saves", True) and 
+                self.settings.get("live_edits_enabled", False) and 
+                os.path.exists(self.repo_saves_path)):
                 try:
                     ingame_items = [item for item in os.listdir(self.repo_saves_path) if os.path.isdir(os.path.join(self.repo_saves_path, item)) and item.startswith("REPO_SAVE_")]
                     for item_name in ingame_items:
@@ -1694,11 +1703,22 @@ class RepoSaveManager(QMainWindow):
                                 break
                     else:
                         # Game save doesn't exist, create it
-                        shutil.copytree(save_path, game_save_path)
-                        for filename in os.listdir(game_save_path):
-                            if filename.endswith('.es3'):
-                                target_save_path = os.path.join(game_save_path, filename)
-                                break
+                        try:
+                            shutil.copytree(save_path, game_save_path)
+                            for filename in os.listdir(game_save_path):
+                                if filename.endswith('.es3'):
+                                    target_save_path = os.path.join(game_save_path, filename)
+                                    break
+                        except Exception as copy_error:
+                            # If copy fails, clean up any partial directories and show error
+                            if os.path.exists(game_save_path):
+                                try:
+                                    shutil.rmtree(game_save_path)
+                                except Exception:
+                                    pass  # Ignore cleanup errors
+                            QMessageBox.critical(self, "Error", 
+                                               f"Failed to create game save for live editing: {copy_error}")
+                            return  # Exit the method early
 
             # Open the SaveEditor dialog
             editor_dialog = SaveEditor(es3_file_path, self, live_edits_enabled, target_save_path, save_info) 
