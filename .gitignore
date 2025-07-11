@@ -2,3 +2,5 @@
 build
 *.spec
 version_info.txt
+*.pyc
+__pycache__
