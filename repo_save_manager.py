@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                             QLineEdit, QTableWidget, QTableWidgetItem, QHeaderView,
                             QStyledItemDelegate, QAbstractItemView, QInputDialog,
                             QFrame, QComboBox, QDialog, QScrollArea, QTabWidget,
-                            QTextEdit)
+                            QTextEdit, QMenuBar, QCheckBox, QGroupBox)
 from PyQt6.QtCore import Qt, QSize, QRegularExpression
 from PyQt6.QtGui import QFont, QIcon, QSyntaxHighlighter, QTextCharFormat, QColor, QPixmap, QImage
 import requests
@@ -172,18 +172,26 @@ class JsonHighlighter(QSyntaxHighlighter):
                 self.setFormat(match.capturedStart(), match.capturedLength(), format)
 
 class SaveEditor(QDialog):
-    def __init__(self, save_file_path, parent=None):
+    def __init__(self, save_file_path, parent=None, live_edits_enabled=False, target_save_path=None, save_info=None):
         super().__init__(parent)
         self.save_file_path = save_file_path
         self.json_data = None
         self.key = "Why would you want to cheat?... :o It's no fun. :') :'D" # Store key
+        self.live_edits_enabled = live_edits_enabled
+        self.target_save_path = target_save_path  # Path to save to if live edits is enabled
+        self.save_info = save_info  # Save info for reference
         
         # Dictionaries to store player-specific widgets
         self.player_widgets = {} # {player_id: {'health': QLineEdit, 'upgrades': {name: QLineEdit}}}
         # Dictionary for batch editing widgets
         self.batch_widgets = {} # {'upgrades': {name: QLineEdit}}
 
-        self.setWindowTitle(f"Editing: {os.path.basename(save_file_path)}")
+        title = f"Editing: {os.path.basename(save_file_path)}"
+        if self.live_edits_enabled:
+            title += " (LIVE EDITS)"
+        elif self.save_info:
+            title += f" ({self.save_info['type']})"
+        self.setWindowTitle(title)
         self.setMinimumSize(900, 600)
         self.setStyleSheet(parent.styleSheet() if parent else "") # Inherit style
         self.setModal(True) # Ensure it's modal
@@ -549,19 +557,111 @@ class SaveEditor(QDialog):
             encrypted_data = encrypt_es3(json_bytes, self.key) # Pass the full password string
             print(f"[DEBUG save] Encrypted data length (IV + Ciphertext): {len(encrypted_data)}") # DEBUG
             
+            # Save to the original file (temp or backup)
             with open(self.save_file_path, 'wb') as f:
                 f.write(encrypted_data)
-                
+            
+            # If live edits is enabled, also save to the target path
+            if self.live_edits_enabled and self.target_save_path:
+                print(f"[DEBUG save] Live edits enabled, also saving to: {self.target_save_path}")
+                with open(self.target_save_path, 'wb') as f:
+                    f.write(encrypted_data)
+                    
             # Mark document as unmodified ONLY after successful save
             self.json_text.document().setModified(False) 
                 
-            QMessageBox.information(self, "Success", "Save file updated successfully")
+            success_message = "Save file updated successfully"
+            if self.live_edits_enabled:
+                success_message += " (Changes applied to game directly)"
+            QMessageBox.information(self, "Success", success_message)
             self.accept() # Close dialog on success
             
         except ImportError:
              QMessageBox.critical(self, "Error", "Failed to load crypto library for saving. Is pycryptodome installed?")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save changes: {str(e)}")
+
+class SettingsDialog(QDialog):
+    def __init__(self, settings, parent=None):
+        super().__init__(parent)
+        self.settings = settings.copy()  # Work with a copy
+        self.setWindowTitle("Settings")
+        self.setMinimumSize(400, 300)
+        self.setStyleSheet(parent.styleSheet() if parent else "")
+        self.setModal(True)
+        
+        self.create_widgets()
+        self.load_settings()
+
+    def create_widgets(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        # Save System Settings Group
+        save_group = QGroupBox("Save System Settings")
+        save_layout = QVBoxLayout(save_group)
+        
+        # Live Edits Toggle
+        self.live_edits_checkbox = QCheckBox("Enable Live Edits (Experimental)")
+        self.live_edits_checkbox.setToolTip(
+            "When enabled, changes will be applied directly to the game's save files\n"
+            "instead of editing backup copies. Use with caution!"
+        )
+        save_layout.addWidget(self.live_edits_checkbox)
+        
+        # Warning label
+        warning_label = QLabel("⚠️ Warning: Live edits modify game files directly. Always backup your saves first!")
+        warning_label.setStyleSheet("color: #ff9500; font-size: 11px; font-style: italic;")
+        warning_label.setWordWrap(True)
+        save_layout.addWidget(warning_label)
+        
+        # Display Settings Group
+        display_group = QGroupBox("Display Settings")
+        display_layout = QVBoxLayout(display_group)
+        
+        self.show_backup_checkbox = QCheckBox("Show Backup Saves")
+        self.show_backup_checkbox.setToolTip("Show backup saves in the save list")
+        display_layout.addWidget(self.show_backup_checkbox)
+        
+        self.show_ingame_checkbox = QCheckBox("Show In-Game Saves")
+        self.show_ingame_checkbox.setToolTip("Show in-game saves in the save list\n(Only shown when Live Edits is enabled)")
+        display_layout.addWidget(self.show_ingame_checkbox)
+        
+        # Add note about the dependency
+        note_label = QLabel("Note: In-game saves are only visible when Live Edits is enabled")
+        note_label.setStyleSheet("color: #666666; font-size: 11px; font-style: italic;")
+        note_label.setWordWrap(True)
+        display_layout.addWidget(note_label)
+        
+        layout.addWidget(save_group)
+        layout.addWidget(display_group)
+        layout.addStretch()
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        self.save_btn = QPushButton("Save")
+        self.save_btn.setObjectName("primary")
+        self.save_btn.clicked.connect(self.accept)
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(self.save_btn)
+        button_layout.addWidget(self.cancel_btn)
+        layout.addLayout(button_layout)
+
+    def load_settings(self):
+        """Load current settings into the dialog"""
+        self.live_edits_checkbox.setChecked(self.settings.get("live_edits_enabled", False))
+        self.show_backup_checkbox.setChecked(self.settings.get("show_backup_saves", True))
+        self.show_ingame_checkbox.setChecked(self.settings.get("show_in_game_saves", True))
+
+    def get_settings(self):
+        """Get the current settings from the dialog"""
+        return {
+            "live_edits_enabled": self.live_edits_checkbox.isChecked(),
+            "show_backup_saves": self.show_backup_checkbox.isChecked(),
+            "show_in_game_saves": self.show_ingame_checkbox.isChecked()
+        }
 
 class RepoSaveManager(QMainWindow):
     def __init__(self):
@@ -581,6 +681,9 @@ class RepoSaveManager(QMainWindow):
         
         # Initialize descriptions AFTER paths are set
         self.descriptions = self.load_descriptions()
+        
+        # Initialize settings AFTER paths are set
+        self.settings = self.load_settings()
 
         # Central Widget and Main Layout must be defined before adding other widgets
         main_widget = QWidget()
@@ -590,6 +693,7 @@ class RepoSaveManager(QMainWindow):
         self.layout.setContentsMargins(24, 24, 24, 24)
         
         self.setup_styling() # Apply styling
+        self.setup_menu_bar() # Create menu bar
         self.setup_ui_elements() # Create and add UI elements to self.layout
         self.connect_signals() # Connect signals AFTER elements are created
 
@@ -644,6 +748,7 @@ class RepoSaveManager(QMainWindow):
         self.backup_path = self.app_data_dir / "backups"
         self.descriptions_file = self.backup_path / "descriptions.json"
         self.editor_path = self.app_data_dir / "editor_temp"
+        self.settings_file = self.app_data_dir / "settings.json"  # Add settings file path
         
         # Create directories if they don't exist
         # CACHE_DIR is created at startup globally
@@ -653,6 +758,69 @@ class RepoSaveManager(QMainWindow):
         self.backup_path.mkdir(parents=True, exist_ok=True)
         print(f"[DEBUG Paths] Ensuring editor path exists: {self.editor_path}")
         self.editor_path.mkdir(parents=True, exist_ok=True)
+
+    def load_settings(self):
+        """Load application settings from file"""
+        default_settings = {
+            "live_edits_enabled": False,
+            "show_in_game_saves": True,
+            "show_backup_saves": True
+        }
+        
+        if os.path.exists(self.settings_file):
+            try:
+                with open(self.settings_file, 'r') as f:
+                    settings = json.load(f)
+                    # Merge with defaults to ensure all keys exist
+                    for key, value in default_settings.items():
+                        if key not in settings:
+                            settings[key] = value
+                    return settings
+            except Exception as e:
+                print(f"Error loading settings: {e}")
+                return default_settings
+        return default_settings
+
+    def save_settings(self):
+        """Save application settings to file"""
+        try:
+            with open(self.settings_file, 'w') as f:
+                json.dump(self.settings, f, indent=4)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save settings: {str(e)}")
+
+    def setup_menu_bar(self):
+        """Create menu bar with settings option"""
+        menubar = self.menuBar()
+        
+        # Settings menu
+        settings_menu = menubar.addMenu("Settings")
+        
+        # Preferences action
+        preferences_action = settings_menu.addAction("Preferences...")
+        preferences_action.triggered.connect(self.open_settings_dialog)
+        
+        # Add separator
+        settings_menu.addSeparator()
+        
+        # About action
+        about_action = settings_menu.addAction("About")
+        about_action.triggered.connect(self.show_about_dialog)
+
+    def open_settings_dialog(self):
+        """Open the settings dialog"""
+        dialog = SettingsDialog(self.settings, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Update settings with new values
+            self.settings = dialog.get_settings()
+            self.save_settings()
+            # Refresh the save list to reflect any changes
+            self.refresh_save_list()
+
+    def show_about_dialog(self):
+        """Show about dialog"""
+        QMessageBox.about(self, "About Repo Save Manager", 
+                         "Repo Save Manager\n\nA tool for managing game save files with backup and live editing capabilities.")
 
     def setup_styling(self):
          # Set modern dark mode styling
@@ -847,6 +1015,60 @@ class RepoSaveManager(QMainWindow):
             QTabBar::tab:hover {
                 background-color: #3a3a3c;
             }
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #3a3a3c;
+                border-radius: 8px;
+                margin-top: 8px;
+                padding-top: 8px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+            }
+            QCheckBox {
+                color: #ffffff;
+                font-size: 14px;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+                border: 2px solid #3a3a3c;
+                border-radius: 3px;
+                background-color: #2c2c2e;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #0A84FF;
+                border-color: #0A84FF;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #007AFF;
+            }
+            QMenuBar {
+                background-color: #2c2c2e;
+                color: #ffffff;
+                border-bottom: 1px solid #3a3a3c;
+            }
+            QMenuBar::item {
+                background-color: transparent;
+                padding: 8px 16px;
+            }
+            QMenuBar::item:selected {
+                background-color: #3a3a3c;
+            }
+            QMenu {
+                background-color: #2c2c2e;
+                color: #ffffff;
+                border: 1px solid #3a3a3c;
+            }
+            QMenu::item {
+                padding: 8px 16px;
+            }
+            QMenu::item:selected {
+                background-color: #007AFF;
+            }
         """)
 
     def setup_ui_elements(self):
@@ -854,7 +1076,7 @@ class RepoSaveManager(QMainWindow):
         quick_actions_layout = QHBoxLayout()
         self.backup_btn = QPushButton("⬇️ Backup Save")
         self.backup_btn.setObjectName("primary")
-        self.restore_btn = QPushButton("⬆️ Restore Selected Save")
+        self.restore_btn = QPushButton("⬆️ Restore to Game")
         self.open_folder_btn = QPushButton("📂 Open Save Folder")
         
         quick_actions_layout.addWidget(self.backup_btn)
@@ -875,17 +1097,18 @@ class RepoSaveManager(QMainWindow):
         self.layout.addWidget(table_label)
         
         self.save_table = QTableWidget()
-        # Columns: Save Name, Players, Notes, Day, Last Modified
-        self.save_table.setColumnCount(5) 
-        self.save_table.setHorizontalHeaderLabels(["Save Name", "Players", "Notes", "Day", "Last Modified"])
+        # Columns: Save Name, Type, Players, Notes, Day, Last Modified
+        self.save_table.setColumnCount(6) 
+        self.save_table.setHorizontalHeaderLabels(["Save Name", "Type", "Players", "Notes", "Day", "Last Modified"])
         # Make columns resizable by user
         self.save_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         # Set initial column widths but allow resizing
-        self.save_table.horizontalHeader().resizeSection(0, 250)  # Save Name
-        self.save_table.horizontalHeader().resizeSection(1, 120)  # Players
-        self.save_table.horizontalHeader().resizeSection(2, 250)  # Notes
-        self.save_table.horizontalHeader().resizeSection(3, 60)   # Day
-        self.save_table.horizontalHeader().resizeSection(4, 150)  # Last Modified
+        self.save_table.horizontalHeader().resizeSection(0, 220)  # Save Name
+        self.save_table.horizontalHeader().resizeSection(1, 80)   # Type
+        self.save_table.horizontalHeader().resizeSection(2, 120)  # Players
+        self.save_table.horizontalHeader().resizeSection(3, 200)  # Notes
+        self.save_table.horizontalHeader().resizeSection(4, 60)   # Day
+        self.save_table.horizontalHeader().resizeSection(5, 150)  # Last Modified
         # Stretch only the last column
         self.save_table.horizontalHeader().setStretchLastSection(True)  # Make last column fill remaining space
         
@@ -895,8 +1118,8 @@ class RepoSaveManager(QMainWindow):
         self.save_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.save_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.save_table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
-        # Ensure delegate is set for the correct column (Notes is now column 2)
-        self.save_table.setItemDelegateForColumn(2, DescriptionDelegate()) 
+        # Ensure delegate is set for the correct column (Notes is now column 3)
+        self.save_table.setItemDelegateForColumn(3, DescriptionDelegate()) 
         self.save_table.verticalHeader().setDefaultSectionSize(60) # Increased row height
         self.layout.addWidget(self.save_table)
         
@@ -966,24 +1189,68 @@ class RepoSaveManager(QMainWindow):
         password = "Why would you want to cheat?... :o It's no fun. :') :'D"
         
         try:
-            backup_items = sorted([item for item in os.listdir(self.backup_path) if os.path.isdir(os.path.join(self.backup_path, item)) and item.startswith("REPO_SAVE_")], reverse=True)
+            all_saves = []
             
-            for item_name in backup_items:
+            # Add backup saves if enabled
+            if self.settings.get("show_backup_saves", True):
+                backup_items = [item for item in os.listdir(self.backup_path) if os.path.isdir(os.path.join(self.backup_path, item)) and item.startswith("REPO_SAVE_")]
+                for item_name in backup_items:
+                    all_saves.append({
+                        'name': item_name,
+                        'type': 'Backup',
+                        'path': os.path.join(self.backup_path, item_name),
+                        'is_backup': True
+                    })
+            
+            # Add in-game saves if enabled and live edits is enabled
+            # Hide in-game saves when live edits is disabled as they cannot be safely edited
+            if (self.settings.get("show_in_game_saves", True) and 
+                self.settings.get("live_edits_enabled", False) and 
+                os.path.exists(self.repo_saves_path)):
+                try:
+                    ingame_items = [item for item in os.listdir(self.repo_saves_path) if os.path.isdir(os.path.join(self.repo_saves_path, item)) and item.startswith("REPO_SAVE_")]
+                    for item_name in ingame_items:
+                        all_saves.append({
+                            'name': item_name,
+                            'type': 'In-Game',
+                            'path': os.path.join(self.repo_saves_path, item_name),
+                            'is_backup': False
+                        })
+                except Exception as e:
+                    print(f"Error reading in-game saves: {e}")
+            
+            # Sort saves by name, descending
+            all_saves.sort(key=lambda x: x['name'], reverse=True)
+            
+            for save_info in all_saves:
                 row = self.save_table.rowCount()
                 self.save_table.insertRow(row)
                 
                 # --- Column 0: Save Name --- 
-                name_item = QTableWidgetItem(item_name)
+                name_item = QTableWidgetItem(save_info['name'])
                 name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 name_item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter) # Center vertically
+                # Store save info as user data for later use
+                name_item.setData(Qt.ItemDataRole.UserRole, save_info)
                 self.save_table.setItem(row, 0, name_item)
+                
+                # --- Column 1: Type --- 
+                type_item = QTableWidgetItem(save_info['type'])
+                type_item.setFlags(type_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                type_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                # Color code the type
+                if save_info['type'] == 'Backup':
+                    type_item.setBackground(QColor("#2d4a2d"))  # Dark green background
+                else:
+                    type_item.setBackground(QColor("#2d3a4d"))  # Dark blue background
+                self.save_table.setItem(row, 1, type_item)
 
                 # --- Extract data and Create Widgets for other columns --- 
                 player_ids = []
                 player_names_dict = {} # Store names for tooltip
                 day_str = "N/A"
                 es3_file_path = None
-                item_path = os.path.join(self.backup_path, item_name)
+                item_path = save_info['path']
                 
                 try:
                     # Find the .es3 file
@@ -1007,15 +1274,15 @@ class RepoSaveManager(QMainWindow):
                         
                         day_str = str(run_stats.get('level', 'N/A'))
                     else:
-                        print(f"Warning: No .es3 file found in {item_name}")
+                        print(f"Warning: No .es3 file found in {save_info['name']}")
                         
                 except Exception as e:
-                    print(f"Error processing save {item_name}: {e}")
+                    print(f"Error processing save {save_info['name']}: {e}")
                     day_str = "Error"
                     player_ids = [] 
                     player_names_dict = {}
 
-                # --- Column 1: Players (PFPs) --- 
+                # --- Column 2: Players (PFPs) --- 
                 pfp_widget = QWidget()
                 pfp_layout = QHBoxLayout(pfp_widget)
                 pfp_layout.setContentsMargins(5, 0, 5, 0) 
@@ -1040,21 +1307,21 @@ class RepoSaveManager(QMainWindow):
                      pfp_layout.addWidget(no_players_label)
                      pfp_widget.setToolTip("No players found or error reading save.") # Tooltip for container
                 pfp_widget.setLayout(pfp_layout)
-                self.save_table.setCellWidget(row, 1, pfp_widget)
+                self.save_table.setCellWidget(row, 2, pfp_widget)
                 
-                # --- Column 2: Notes (Editable) --- 
-                desc = self.descriptions.get(item_name, "") # Gets saved note or empty string
+                # --- Column 3: Notes (Editable) --- 
+                desc = self.descriptions.get(save_info['name'], "") # Gets saved note or empty string
                 desc_item = QTableWidgetItem(desc)
                 desc_item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter) # Center vertically
-                self.save_table.setItem(row, 2, desc_item) # Set item at column 2 (Notes before Day)
+                self.save_table.setItem(row, 3, desc_item) # Set item at column 3 (Notes)
                 
-                # --- Column 3: Day --- 
+                # --- Column 4: Day --- 
                 day_item = QTableWidgetItem(day_str)
                 day_item.setFlags(day_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 day_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter) # Center vertically AND horizontally
-                self.save_table.setItem(row, 3, day_item) # Set item at column 3
+                self.save_table.setItem(row, 4, day_item) # Set item at column 4
                 
-                # --- Column 4: Last Modified --- 
+                # --- Column 5: Last Modified --- 
                 try:
                     # Get the last modified time of the directory
                     last_mod_time = os.path.getmtime(item_path)
@@ -1067,15 +1334,15 @@ class RepoSaveManager(QMainWindow):
                 mod_item = QTableWidgetItem(last_mod_str)
                 mod_item.setFlags(mod_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 mod_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.save_table.setItem(row, 4, mod_item)
+                self.save_table.setItem(row, 5, mod_item)
                 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to list saves: {str(e)}")
 
     def on_description_changed(self, item):
         """Handle description changes"""
-        # Check if the changed item is in the Notes column (index 2)
-        if item.column() == 2: 
+        # Check if the changed item is in the Notes column (index 3)
+        if item.column() == 3: 
             save_name_item = self.save_table.item(item.row(), 0)
             if save_name_item: # Ensure save name item exists
                  save_name = save_name_item.text()
@@ -1087,14 +1354,26 @@ class RepoSaveManager(QMainWindow):
         if not selected_items:
             return None
         return selected_items[0].text()
+    
+    def get_selected_save_info(self):
+        """Get the selected save info including type and path"""
+        selected_items = self.save_table.selectedItems()
+        if not selected_items:
+            return None
+        # Get the first column item (name) which has the save info as user data
+        name_item = self.save_table.item(selected_items[0].row(), 0)
+        if name_item:
+            return name_item.data(Qt.ItemDataRole.UserRole)
+        return None
             
     def duplicate_save(self):
-        save_name = self.get_selected_save()
-        if not save_name:
+        save_info = self.get_selected_save_info()
+        if not save_info:
             QMessageBox.warning(self, "Warning", "Please select a save to duplicate")
             return
             
-        source_path = os.path.join(self.backup_path, save_name)
+        source_path = save_info['path']
+        save_name = save_info['name']
         timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         new_save_name = f"REPO_SAVE_{timestamp}"
         dest_path = os.path.join(self.backup_path, new_save_name)
@@ -1112,10 +1391,14 @@ class RepoSaveManager(QMainWindow):
                     os.rename(old_path, new_path)
             
             # Copy the description if it exists
-            self.descriptions[new_save_name] = f"Copy of {save_name}"
+            original_desc = self.descriptions.get(save_name, "")
+            if original_desc:
+                self.descriptions[new_save_name] = f"Copy of {save_name}: {original_desc}"
+            else:
+                self.descriptions[new_save_name] = f"Copy of {save_name}"
             self.save_descriptions()
             self.refresh_save_list()
-            QMessageBox.information(self, "Success", f"Created duplicate save")
+            QMessageBox.information(self, "Success", f"Created duplicate save in backups")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to duplicate save: {str(e)}")
             
@@ -1279,29 +1562,42 @@ class RepoSaveManager(QMainWindow):
             QMessageBox.critical(self, "Error", f"Failed to create backup: {str(e)}")
             
     def delete_save(self):
-        save_name = self.get_selected_save()
-        if not save_name:
+        save_info = self.get_selected_save_info()
+        if not save_info:
             QMessageBox.warning(self, "Warning", "Please select a save to delete")
             return
             
+        save_name = save_info['name']
+        save_type = save_info['type']
+        
         reply = QMessageBox.question(self, "Confirm Delete",
-                                   f"Are you sure you want to delete {save_name}?",
+                                   f"Are you sure you want to delete {save_name} ({save_type})?",
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                # Delete from backup
-                backup_path = os.path.join(self.backup_path, save_name)
-                shutil.rmtree(backup_path)
+                # Delete the selected save
+                shutil.rmtree(save_info['path'])
                 
-                # Ask if user wants to delete from repo
-                repo_path = os.path.join(self.repo_saves_path, save_name)
-                if os.path.exists(repo_path):
-                    reply = QMessageBox.question(self, "Delete from Repo",
-                                              "Do you also want to delete this save from the game?",
-                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                    if reply == QMessageBox.StandardButton.Yes:
-                        shutil.rmtree(repo_path)
+                # If deleting a backup, ask if user wants to delete from game too
+                if save_type == 'Backup':
+                    repo_path = os.path.join(self.repo_saves_path, save_name)
+                    if os.path.exists(repo_path):
+                        reply = QMessageBox.question(self, "Delete from Game",
+                                                  "Do you also want to delete this save from the game?",
+                                                  QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                        if reply == QMessageBox.StandardButton.Yes:
+                            shutil.rmtree(repo_path)
+                
+                # If deleting an in-game save, ask if user wants to delete backup too
+                elif save_type == 'In-Game':
+                    backup_path = os.path.join(self.backup_path, save_name)
+                    if os.path.exists(backup_path):
+                        reply = QMessageBox.question(self, "Delete Backup",
+                                                  "Do you also want to delete the backup of this save?",
+                                                  QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                        if reply == QMessageBox.StandardButton.Yes:
+                            shutil.rmtree(backup_path)
                 
                 if save_name in self.descriptions:
                     del self.descriptions[save_name]
@@ -1312,27 +1608,36 @@ class RepoSaveManager(QMainWindow):
                 QMessageBox.critical(self, "Error", f"Failed to delete save: {str(e)}")
                 
     def insert_into_repo(self):
-        save_name = self.get_selected_save()
-        if not save_name:
-            QMessageBox.warning(self, "Warning", "Please select a save to insert")
+        save_info = self.get_selected_save_info()
+        if not save_info:
+            QMessageBox.warning(self, "Warning", "Please select a save to restore")
+            return
+            
+        save_name = save_info['name']
+        save_type = save_info['type']
+        
+        # If it's already an in-game save, just show a message
+        if save_type == 'In-Game':
+            QMessageBox.information(self, "Already In-Game", "This save is already in the game directory.")
             return
             
         try:
-            source_path = os.path.join(self.backup_path, save_name)
+            source_path = save_info['path']
             dest_path = os.path.join(self.repo_saves_path, save_name)
             
             if os.path.exists(dest_path):
                 reply = QMessageBox.question(self, "Confirm Overwrite",
-                                          f"Save {save_name} already exists in the repo. Overwrite?",
+                                          f"Save {save_name} already exists in the game. Overwrite?",
                                           QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                 if reply == QMessageBox.StandardButton.No:
                     return
                 shutil.rmtree(dest_path)
                 
             shutil.copytree(source_path, dest_path)
-            QMessageBox.information(self, "Success", f"Save inserted into repo successfully")
+            self.refresh_save_list()  # Refresh to show both backup and in-game versions
+            QMessageBox.information(self, "Success", f"Save restored to game successfully")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to insert save: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to restore save: {str(e)}")
 
     def open_save_folder(self):
         try:
@@ -1341,20 +1646,33 @@ class RepoSaveManager(QMainWindow):
             QMessageBox.critical(self, "Error", f"Failed to open save folder: {str(e)}")
 
     def open_in_editor(self):
-        selected_save_name = self.get_selected_save()
-        if not selected_save_name:
+        save_info = self.get_selected_save_info()
+        if not save_info:
             # This case should ideally not happen if button is disabled correctly
             QMessageBox.warning(self, "No Save Selected", "Please select a save from the list to edit.")
             return
 
-        backup_save_path = os.path.join(self.backup_path, selected_save_name)
-        temp_save_dir = os.path.join(self.editor_path, selected_save_name) # Temp dir for the save
+        save_name = save_info['name']
+        save_type = save_info['type']
+        save_path = save_info['path']
+        live_edits_enabled = self.settings.get("live_edits_enabled", False)
+        
+        # Show warning for live edits if enabled
+        if live_edits_enabled:
+            reply = QMessageBox.question(self, "Live Edits Warning", 
+                                      "⚠️ Live edits mode is enabled. Changes will be applied directly to the game files.\n\n"
+                                      "Are you sure you want to continue?",
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        temp_save_dir = os.path.join(self.editor_path, save_name) # Temp dir for the save
 
         try:
             # Ensure clean temp directory
             if os.path.exists(temp_save_dir):
                 shutil.rmtree(temp_save_dir)
-            shutil.copytree(backup_save_path, temp_save_dir)
+            shutil.copytree(save_path, temp_save_dir)
 
             # Find the .es3 file within the temp directory
             es3_file_path = None
@@ -1366,19 +1684,85 @@ class RepoSaveManager(QMainWindow):
             if not es3_file_path:
                 raise FileNotFoundError("No .es3 file found in the temporary save directory.")
 
+            # Determine target save path for live edits
+            target_save_path = None
+            if live_edits_enabled:
+                # Find the .es3 file in the original save directory
+                for filename in os.listdir(save_path):
+                    if filename.endswith('.es3'):
+                        target_save_path = os.path.join(save_path, filename)
+                        break
+                
+                # If editing a backup and live edits is enabled, target the game directory
+                if save_type == 'Backup':
+                    game_save_path = os.path.join(self.repo_saves_path, save_name)
+                    if os.path.exists(game_save_path):
+                        for filename in os.listdir(game_save_path):
+                            if filename.endswith('.es3'):
+                                target_save_path = os.path.join(game_save_path, filename)
+                                break
+                    else:
+                        # Game save doesn't exist, create it
+                        try:
+                            shutil.copytree(save_path, game_save_path)
+                            for filename in os.listdir(game_save_path):
+                                if filename.endswith('.es3'):
+                                    target_save_path = os.path.join(game_save_path, filename)
+                                    break
+                            
+                            # Check if .es3 file was found in the copied directory
+                            if not target_save_path:
+                                # Clean up the copied directory since it's unusable
+                                if os.path.exists(game_save_path):
+                                    try:
+                                        shutil.rmtree(game_save_path)
+                                    except Exception:
+                                        pass  # Ignore cleanup errors
+                                QMessageBox.critical(self, "Error", 
+                                                   "No .es3 file found in the copied game save directory. Live edits cannot be applied.")
+                                # Clean up temp directory before returning
+                                if os.path.exists(temp_save_dir):
+                                    try:
+                                        shutil.rmtree(temp_save_dir)
+                                    except Exception:
+                                        pass  # Ignore cleanup errors
+                                return  # Exit the method early
+                                
+                        except Exception as copy_error:
+                            # If copy fails, clean up any partial directories and show error
+                            if os.path.exists(game_save_path):
+                                try:
+                                    shutil.rmtree(game_save_path)
+                                except Exception:
+                                    pass  # Ignore cleanup errors
+                            QMessageBox.critical(self, "Error", 
+                                               f"Failed to create game save for live editing: {copy_error}")
+                            # Clean up temp directory before returning
+                            if os.path.exists(temp_save_dir):
+                                try:
+                                    shutil.rmtree(temp_save_dir)
+                                except Exception:
+                                    pass  # Ignore cleanup errors
+                            return  # Exit the method early
+
             # Open the SaveEditor dialog
-            editor_dialog = SaveEditor(es3_file_path, self) 
+            editor_dialog = SaveEditor(es3_file_path, self, live_edits_enabled, target_save_path, save_info) 
             result = editor_dialog.exec() # Show the modal dialog
 
             # If the user saved changes (dialog accepted), copy back from temp
             if result == QDialog.DialogCode.Accepted:
-                print(f"Copying changes back from {temp_save_dir} to {backup_save_path}")
-                # Copy back the edited save (overwrite existing backup)
-                if os.path.exists(backup_save_path):
-                     shutil.rmtree(backup_save_path) # Remove old backup before copying new
-                shutil.copytree(temp_save_dir, backup_save_path)
-                # No need to refresh list unless rename happens (which editor doesn't do)
-                QMessageBox.information(self, "Editor", "Changes saved and applied to the backup.")
+                if not live_edits_enabled:
+                    # Traditional workflow - copy back to backup
+                    print(f"Copying changes back from {temp_save_dir} to {save_path}")
+                    if os.path.exists(save_path):
+                         shutil.rmtree(save_path) # Remove old save before copying new
+                    shutil.copytree(temp_save_dir, save_path)
+                    QMessageBox.information(self, "Editor", f"Changes saved to {save_type.lower()} save.")
+                else:
+                    # Live edits workflow - changes were already applied directly
+                    print("Live edits: Changes already applied directly to game files")
+                    # Refresh the save list to show updated modification times
+                    self.refresh_save_list()
             else:
                  print("Editor cancelled, changes discarded.")
             
