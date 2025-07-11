@@ -1709,6 +1709,25 @@ class RepoSaveManager(QMainWindow):
                                 if filename.endswith('.es3'):
                                     target_save_path = os.path.join(game_save_path, filename)
                                     break
+                            
+                            # Check if .es3 file was found in the copied directory
+                            if not target_save_path:
+                                # Clean up the copied directory since it's unusable
+                                if os.path.exists(game_save_path):
+                                    try:
+                                        shutil.rmtree(game_save_path)
+                                    except Exception:
+                                        pass  # Ignore cleanup errors
+                                QMessageBox.critical(self, "Error", 
+                                                   "No .es3 file found in the copied game save directory. Live edits cannot be applied.")
+                                # Clean up temp directory before returning
+                                if os.path.exists(temp_save_dir):
+                                    try:
+                                        shutil.rmtree(temp_save_dir)
+                                    except Exception:
+                                        pass  # Ignore cleanup errors
+                                return  # Exit the method early
+                                
                         except Exception as copy_error:
                             # If copy fails, clean up any partial directories and show error
                             if os.path.exists(game_save_path):
@@ -1718,6 +1737,12 @@ class RepoSaveManager(QMainWindow):
                                     pass  # Ignore cleanup errors
                             QMessageBox.critical(self, "Error", 
                                                f"Failed to create game save for live editing: {copy_error}")
+                            # Clean up temp directory before returning
+                            if os.path.exists(temp_save_dir):
+                                try:
+                                    shutil.rmtree(temp_save_dir)
+                                except Exception:
+                                    pass  # Ignore cleanup errors
                             return  # Exit the method early
 
             # Open the SaveEditor dialog
