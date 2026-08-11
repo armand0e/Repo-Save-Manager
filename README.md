@@ -1,3 +1,5 @@
+
+
 # Repo Save Manager
 
 <div align="center">
@@ -40,8 +42,10 @@
 
 ### Easy Installation (Recommended)
 
-1. **Download** the latest `RepoSaveManager.exe` from the [Releases](https://github.com/armand0e/Repo-Save-Manager/releases) page
-2. **Run** the executable - no installation required!
+1. **Download** the latest release from the [Releases](https://github.com/armand0e/Repo-Save-Manager/releases) page:
+   - **Windows:** `Repo-Save-Manager-<version>-Windows.exe`
+   - **Linux:** `Repo-Save-Manager-<version>-Linux.deb` or `Repo-Save-Manager-<version>.AppImage`
+2. **Run** the executable directly, or install the `.deb` package / make the `.AppImage` executable to run it on Linux.
 
 ### For Developers (Source Code)
 
